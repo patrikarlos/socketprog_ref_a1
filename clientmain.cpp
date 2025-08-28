@@ -12,21 +12,21 @@
 #include <calcLib.h>
 
 int main(int argc, char *argv[]){
-
-
-  #ifndef DEBUGNOCLIARG
-    if (argc < 2) {
-        fprintf(stderr, "Usage: Require protocol://server:port.\n");
-        exit(EXIT_FAILURE);
-    }
-#endif
+  
+  
+  
+  if (argc < 2) {
+    fprintf(stderr, "Usage: %s protocol://server:port/path.\n", argv[0]);
+    exit(EXIT_FAILURE);
+  }
+  
 
     
   /*
     Read first input, assumes <ip>:<port> syntax, convert into one string (Desthost) and one integer (port). 
      Atm, works only on dotted notation, i.e. IPv4 and DNS. IPv6 does not work if its using ':'. 
   */
-    char protocolstring[6], hoststring[2000],portstring[6];
+    char protocolstring[6], hoststring[2000],portstring[6], pathstring[7];
 
     char *input = argv[1];
     
@@ -78,24 +78,46 @@ int main(int argc, char *argv[]){
     strncpy(hoststring, host_start, port_start - host_start);
     hoststring[port_start - host_start] = '\0';
 
-
-    // Extract port
-    char *port_str = port_start + 1;
-    if (*port_str == '\0') {
-      printf("Error: Port is empty\n");
-      return 1;
-    }
-    if (strlen(port_str) >= sizeof(portstring)) {
-        printf("Error: Port string too long\n");
+        // Find '/' which starts the path
+    char *path_start = strchr(host_start, '/');
+    if (!path_start || *(path_start + 1) == '\0') {
+        fprintf(stderr, "Error: Path is missing or invalid\n");
         return 1;
     }
-    // Copy port
-    strcpy(portstring, port_start + 1);
+
+    // Extract path
+    if (strlen(path_start + 1) >= sizeof(pathstring)) {
+        fprintf(stderr, "Error: Path string too long\n");
+        return 1;
+    }
+    strcpy(pathstring, path_start + 1);
+
+    // Extract port
+
+
+    size_t port_len = path_start - port_start - 1;
+    if (port_len >= sizeof(portstring)) {
+        fprintf(stderr, "Error: Port string too long\n");
+        return 1;
+    }
+    strncpy(portstring, port_start + 1, port_len);
+    portstring[port_len] = '\0';
+
+    // Validate port is numeric
+    for (size_t i = 0; i < strlen(portstring); ++i) {
+        if (portstring[i] < '0' || portstring[i] > '9') {
+            fprintf(stderr, "Error: Port must be numeric\n");
+            return 1;
+        }
+    }
+
+
     
-    char *protocol, *Desthost, *Destport;
+    char *protocol, *Desthost, *Destport, *Destpath;
     protocol=protocolstring;
     Desthost=hoststring;
     Destport=portstring;
+    Destpath=pathstring;
       
   // *Desthost now points to a sting holding whatever came before the delimiter, ':'.
   // *Dstport points to whatever string came after the delimiter. 
@@ -112,7 +134,7 @@ int main(int argc, char *argv[]){
     return 1;
   }
 #ifdef DEBUG 
-  printf("Protocol: %s Host %s, and port %d.\n",protocol, Desthost,port);
+  printf("Protocol: %s Host %s, port = %d and path = %s.\n",protocol, Desthost,port, Destpath);
 #endif
 
 
